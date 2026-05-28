@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>מעקב חלוקת תרופות - חפציבה</title>
+    
+    <!-- PWA & Apple Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="neutral">
+    <meta name="apple-mobile-web-app-title" content="חפציבה תרופות">
+    <meta name="theme-color" content="#faf8f5">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3022/3022828.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-system: #faf8f5;       
+            --bg-card: #ffffff;         
+            --text-primary: #3c2f2f;    
+            --text-secondary: #7a6e67;  
+            --warm-accent: #a66e4e;     
+            --warm-accent-light: #f4efe6; 
+            
+            --apple-green: #4a7c59;     
+            --apple-red: #b84a39;       
+            --apple-orange: #d9822b;    
+            --border-color: #e8e2da;    
+            --input-bg: #fcfbfa;        
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans Hebrew', sans-serif; background: var(--bg-system); color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+        body { overflow-x: hidden; padding-bottom: 90px; }
+        
+        .header { background: var(--bg-card); padding: 26px 20px 18px 20px; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 8px rgba(166, 110, 78, 0.04); }
+        .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; color: var(--text-primary); }
+        .header p { font-size: 14px; color: var(--warm-accent); margin-top: 4px; font-weight: 600; }
+        
+        .content { padding: 20px 16px; }
+        .time-section { margin-bottom: 24px; animation: fadeIn 0.3s ease-out; }
+        
+        .time-header { font-size: 19px; font-weight: 700; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding: 0 4px; }
+        .time-badge { background: var(--warm-accent-light); color: var(--warm-accent); padding: 6px 14px; border-radius: 100px; font-size: 13px; font-weight: 600; border: 1px solid rgba(166, 110, 78, 0.15); }
+        
+        .apple-group { background: var(--bg-card); border-radius: 18px; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(166, 110, 78, 0.03); margin-bottom: 20px; }
+        .selector-card { padding: 18px; background: #fffdfb; border: 1px solid rgba(166, 110, 78, 0.15); }
+        .selector-card label { font-size: 13px; font-weight: 700; color: var(--warm-accent); display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; }
+        
+        /* רכיב מתג (Toggle) מעוצב להתראות */
+        .notification-toggle-container { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: var(--bg-card); border-radius: 18px; border: 1px solid var(--border-color); margin-bottom: 16px; box-shadow: 0 4px 12px rgba(166, 110, 78, 0.02); }
+        .toggle-title { font-size: 15px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #d4cac1; transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--apple-green); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .input-group { margin-bottom: 16px; width: 100%; }
+        .input-group label { display: block; font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; padding-right: 4px; }
+        
+        select, input, textarea { width: 100%; padding: 14px 14px; background: var(--input-bg); border: 1px solid #d4cac1; border-radius: 12px; font-size: 16px; font-family: inherit; color: var(--text-primary); appearance: none; outline: none; transition: all 0.2s; }
+        select:focus, input:focus { border-color: var(--warm-accent); background: #ffffff; box-shadow: 0 0 0 3px rgba(166, 110, 78, 0.1); }
+        
+        .reminder-card { padding: 20px 16px; display: flex; flex-direction: column; border-bottom: 1px solid var(--border-color); transition: background-color 0.15s ease; cursor: pointer; position: relative; }
+        .reminder-card:last-child { border-bottom: none; }
+        .reminder-card:active { background-color: var(--warm-accent-light); }
+        
+        .reminder-time { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+        .reminder-residents { font-size: 14px; color: var(--text-secondary); }
+        .reminder-room { font-size: 13px; color: var(--text-secondary); margin-top: 2px; font-weight: 500; }
+        
+        .reminder-status { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 600; }
+        .status-completed { color: var(--apple-green); }
+        .status-partial { color: var(--apple-orange); }
+        
+        .btn { width: 100%; padding: 15px 16px; margin-bottom: 10px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .btn-primary { background: var(--warm-accent); color: white; }
+        .btn-primary:active { opacity: 0.9; transform: scale(0.99); }
+        .btn-danger { background: #fff5f2; color: var(--apple-red); border: 1px solid rgba(184, 74, 57, 0.2); }
+        .btn-success { background: #f2f7f4; color: var(--apple-green); border: 1px solid rgba(74, 124, 89, 0.2); }
+        .btn-secondary { background: var(--warm-accent-light); color: var(--warm-accent); font-weight: 600; border: 1px solid rgba(166, 110, 78, 0.1); }
+        .btn-admin { background: transparent; color: var(--text-secondary); font-size: 14px; margin-top: 12px; font-weight: 600; text-decoration: underline; border:none; cursor: pointer;}
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(60, 47, 47, 0.4); z-index: 1000; align-items: flex-end; backdrop-filter: blur(4px); }
+        .modal.active { display: flex; }
+        .modal-content { background: #ffffff; width: 100%; padding: 26px 16px 40px 16px; border-radius: 24px 24px 0 0; max-height: 92vh; overflow-y: auto; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); animation: slideUp 0.35s cubic-bezier(0.15, 0.85, 0.35, 1); }
+        .modal-title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 20px; text-align: center; }
+        
+        .resident-info { text-align: center; margin-bottom: 20px; background: var(--warm-accent-light); padding: 14px; border-radius: 14px; }
+        .resident-name { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+        
+        .meds-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+        .med-option { background: #fdfcfb; padding: 16px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s; border: 1.5px solid #d4cac1; }
+        .med-option.selected { border-color: var(--warm-accent); background: #fbf6f0; box-shadow: 0 2px 6px rgba(166, 110, 78, 0.08); }
+        .med-name { font-size: 17px; font-weight: 600; color: var(--text-primary); }
+        .med-dose { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+        
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .action-btn { padding: 16px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .action-given { background: var(--apple-green); color: white; }
+        .action-skipped { background: var(--apple-red); color: white; }
+        
+        .toast { position: fixed; top: 20px; left: 16px; right: 16px; background: rgba(60, 47, 47, 0.95); color: white; padding: 14px 20px; border-radius: 14px; z-index: 999; text-align: center; font-size: 14px; font-weight: 500; backdrop-filter: blur(10px); animation: fadeIn 0.2s; }
+        
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.96); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; height: 64px; z-index: 900; padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; text-align: center; font-size: 24px; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; }
+        .nav-item.active { opacity: 1; color: var(--warm-accent); }
+        
+        .admin-tabs { display: flex; background: #e8e2da; padding: 3px; border-radius: 12px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px 4px; border: none; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.2s; }
+        .tab-btn.active { background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: var(--text-primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .admin-card { background: var(--bg-card); padding: 22px 16px; border-radius: 18px; margin-bottom: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+        .admin-card h3 { font-size: 17px; margin-bottom: 14px; font-weight: 700; color: var(--text-primary); }
+        
+        .item-row, .user-row { background: var(--bg-system); border: 1.5px solid #d4cac1; padding: 14px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .stat-card { background: var(--bg-card); padding: 18px; border-radius: 18px; margin-bottom: 12px; text-align: center; border: 1px solid var(--border-color); }
+        .stat-number { font-size: 34px; font-weight: 700; color: var(--warm-accent); }
+        .stat-label { font-size: 13px; color: var(--text-secondary); font-weight: 700; margin-top: 2px; }
+        
+        .checkbox-grid { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 220px; overflow-y: auto; padding: 2px; }
+        .checkbox-label { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 600; background: var(--bg-system); padding: 14px; border-radius: 12px; border: 1.5px solid #d4cac1; cursor: pointer; }
+        .checkbox-label input { width: auto; transform: scale(1.3); margin-left: 4px; }
+        
+        .sched-builder-row { background: #fffcf6; border: 1px solid #ebdcb9; padding: 14px; border-radius: 14px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+        th { background: var(--bg-system); color: var(--text-primary); padding: 10px; text-align: right; font-weight: 600; }
+        td { padding: 10px; border-bottom: 1px solid var(--border-color); text-align: right; }
+        
+        .cloud-badge { position: fixed; top: 10px; left: 10px; background: #e2f0d9; color: #385723; padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 1001; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 4px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="cloud-badge">☁️ מחובר לענן בזמן אמת</div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen">
+        <div class="header" style="text-align: center; border: none; background: transparent; padding-top: 60px;">
+            <h1 style="font-size: 32px; color: var(--text-primary);">מעקב חלוקת תרופות</h1>
+            <p style="color: var(--warm-accent); font-size: 17px; margin-top: 6px;">שכונת הפרחים חפציבה</p>
+        </div>
+        <div class="content" style="max-width: 380px; margin: 0 auto;">
+            <div class="apple-group" style="padding: 22px; background: white;">
+                <div class="input-group">
+                    <label>שם משתמשת</label>
+                    <input type="text" id="loginUsername" placeholder="הקלידי שם משתמשת...">
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label>סיסמה</label>
+                    <input type="password" id="loginPassword" placeholder="הקלידי סיסמה...">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="handleLogin()">התחברי למערכת</button>
+            <center><button class="btn btn-admin" onclick="adminQuickLogin()">🔧 כניסת מנהל מערכת</button></center>
+        </div>
+    </div>
+    
+    <!-- Main App -->
+    <div id="mainApp" style="display:none;">
+        <div class="header">
+            <h1 id="userName">מעקב חלוקת תרופות</h1>
+            <p>שכונת הפרחים חפציבה</p>
+        </div>
+        <div class="content" id="mainContent"></div>
+    </div>
+    
+    <!-- Admin Panel -->
+    <div id="adminPanel" style="display:none;">
+        <div class="header">
+            <h1>ניהול מערכת ובקרה</h1>
+            <p>שכונת הפרחים חפציבה</p>
+        </div>
+        
+        <div class="content">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchTab(0)">📊 דוחות וסיכום</button>
+                <button class="tab-btn" onclick="switchTab(1)">⚙️ הגדרות ומלאי</button>
+                <button class="tab-btn" onclick="switchTab(2)">👥 הרשאות צוות</button>
+            </div>
+            
+            <!-- TAB 0 -->
+            <div id="tab0" class="tab-content active">
+                <div id="todayStats"></div>
+                
+                <div class="admin-card">
+                    <h3>ייצוא והפקת דוחות תקופתיים</h3>
+                    <div class="input-group">
+                        <label>דוח יומי בתאריך:</label>
+                        <input type="date" id="dailyDate">
+                    </div>
+                    <button class="btn btn-secondary" onclick="generateDailyPDF()">📄 הפק דו"ח יומי (PDF)</button>
+                    
+                    <div class="input-group" style="margin-top: 12px;">
+                        <label>דוח חודשי מרוכז:</label>
+                        <input type="month" id="monthlyDate">
+                    </div>
+                    <button class="btn btn-secondary" onclick="generateMonthlyPDF()">📄 הפק דו"ח חודשי מרוכז (PDF)</button>
+                </div>
+                
+                <div class="admin-card">
+                    <h3>מסד נתונים וגיבויים</h3>
+                    <button class="btn btn-secondary" onclick="exportJSON()">📊 ייצוא גיבוי נתונים מלא (JSON)</button>
+                    <button class="btn btn-danger" onclick="clearAllData()">🗑️ איפוס מוחלט של מסד הנתונים</button>
+                </div>
+                <button class="btn btn-danger" style="margin-top: 15px;" onclick="logout()">🚪 התנתקות בטוחה</button>
+            </div>
+            
+            <!-- TAB 1 -->
+            <div id="tab1" class="tab-content">
+                <div class="admin-card">
+                    <h3>רשומת מטופלים ודיירים</h3>
+                    <div id="residentsContainer"></div>
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size:15px; margin-bottom:12px; font-weight:700;">רישום דייר חדש:</h4>
+                        <div class="input-group"><input type="text" id="newResName" placeholder="שם מלא של הדייר"></div>
+                        <div class="input-group"><input type="text" id="newResRoom" placeholder="מספר חדר / מחלקה"></div>
+                        <label style="font-size:13px; color:var(--text-secondary); font-weight:700; display:block; margin-bottom: 6px;">שיוך תרופות קבועות בתיק:</label>
+                        <div id="newResMedsList" class="checkbox-grid"></div>
+                        <button class="btn btn-success" onclick="addResident()">➕ הוסף דייר חדש</button>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <h3>קטלוג ומלאי תרופות מוסדי</h3>
+                    <div id="medicationsList"></div>
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size:15px; margin-bottom:12px; font-weight:700;">הוספת תרופה חדשה לקטלוג:</h4>
+                        <div class="input-group"><input type="text" id="newMedName" placeholder="שם מסחרי / גנרי"></div>
+                        <div class="input-group"><input type="text" id="newMedDose" placeholder="מינון מוגדר"></div>
+                        <button class="btn btn-success" onclick="addMedication()">➕ הוספת תרופה לקטלוג</button>
+                    </div>
+                </div>
+                
+                <div class="admin-card">
+                    <h3>מערך תזמון סבבי חלוקה מובנים</h3>
+                    <div id="scheduleList"></div>
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <h4 style="font-size:15px; margin-bottom:12px; font-weight:700;">הגדרת סבב חלוקה חדש:</h4>
+                        <div class="input-group"><input type="time" id="newTime"></div>
+                        <div id="schedBuilderContainer"></div>
+                        <button class="btn btn-primary" onclick="addSchedule()">💾 שמירה ואישור סבב</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TAB 2 -->
+            <div id="tab2" class="tab-content">
+                <div class="admin-card">
+                    <h3>משתמשות וצוותים מורשים</h3>
+                    <div id="usersContainer"></div>
+                </div>
+                <div class="admin-card">
+                    <h3>הגדרת פרופיל משתמשת חדשה</h3>
+                    <div class="input-group"><input type="text" id="newUserName" placeholder="שם מלא של המדריכה"></div>
+                    <div class="input-group"><input type="text" id="newUserPass" placeholder="קביעת סיסמת גישה"></div>
+                    <button class="btn btn-success" onclick="addNewUser()">💾 שמירת פרופיל</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal" id="editResidentModal">
+        <div class="modal-content">
+            <div class="modal-title">עדכון רשומת דייר</div>
+            <div class="input-group"><label>שם הדייר</label><input type="text" id="editResName"></div>
+            <div class="input-group"><label>מספר חדר</label><input type="text" id="editResRoom"></div>
+            <div class="input-group"><label>תרופות משויכות בתיק המטופל</label><div id="editResMedsList" class="checkbox-grid"></div></div>
+            <button class="btn btn-primary" onclick="saveResident()">שמור שינויים</button>
+            <button class="btn btn-secondary" onclick="closeEditModal()">ביטול</button>
+        </div>
+    </div>
+
+    <div class="modal" id="editMedModal">
+        <div class="modal-content">
+            <div class="modal-title">עריכת מפרט תרופה</div>
+            <div class="input-group"><label>שם התרופה</label><input type="text" id="editMedName"></div>
+            <div class="input-group"><label>מינון מוגדר</label><input type="text" id="editMedDose"></div>
+            <button class="btn btn-primary" onclick="saveMedication()">שמור שינויים</button>
+            <button class="btn btn-secondary" onclick="closeEditMedModal()">ביטול</button>
+        </div>
+    </div>
+
+    <div class="modal" id="editScheduleModal">
+        <div class="modal-content">
+            <div class="modal-title">עדכון סבב חלוקה מתוזמן</div>
+            <div class="input-group"><label>שעת הסבב</label><input type="time" id="editSchedTime"></div>
+            <div id="editSchedBuilderContainer"></div>
+            <button class="btn btn-primary" onclick="saveSchedule()">שמור סבב</button>
+            <button class="btn btn-secondary" onclick="closeEditScheduleModal()">ביטול</button>
+        </div>
+    </div>
+
+    <div class="modal" id="editUserModal">
+        <div class="modal-content">
+            <div class="modal-title">עריכת פרופיל אנשי צוות</div>
+            <div class="input-group"><label>שם המדריכה</label><input type="text" id="editIndividualUserName"></div>
+            <div class="input-group"><label>סיסמת גישה מעודכנת</label><input type="text" id="editIndividualUserPass"></div>
+            <button class="btn btn-primary" onclick="saveUserChanges()">שמור שינויים</button>
+            <button class="btn btn-secondary" onclick="closeEditUserModal()">ביטול</button>
+        </div>
+    </div>
+    
+    <div class="modal" id="medModal">
+        <div class="modal-content">
+            <div class="resident-info">
+                <div class="resident-name" id="modalResidentName"></div>
+                <div class="resident-room" id="modalResidentRoom"></div>
+            </div>
+            <div class="meds-grid" id="medsGrid"></div>
+            <div class="actions">
+                <button class="action-btn action-given" onclick="recordGiven()">✅ ניתנה</button>
+                <button class="action-btn action-skipped" onclick="recordSkipped()">❌ דולגה</button>
+            </div>
+            <button class="btn btn-secondary" onclick="closeModal()">סגור תפריט</button>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast" style="display:none;"></div>
+    
+    <div class="nav-bar" id="navBar" style="display:none;">
+        <div class="nav-item active" onclick="showHome()">🏠</div>
+        <div class="nav-item" onclick="logout()">🚪</div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script>
+        // ==========================================
+        // ⚠️ הגדרות חיבור ענן - Firebase Configuration
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        let db = null;
+        if(firebaseConfig.apiKey !== "YOUR_API_KEY") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        }
+
+        let users = [
+            { username: 'רחל כהן', password: '123' },
+            { username: 'מרים לוי', password: '123' }
+        ];
+        let residents = [
+            { id: 1, name: 'אברהם ישראלי', room: '101', medIds: [1, 2, 4] },
+            { id: 2, name: 'שרה מחזורי', room: '102', medIds: [2, 4] },
+            { id: 3, name: 'יוסף אברומוביץ', room: '103', medIds: [1] }
+        ];
+        let medications = [
+            { id: 1, name: 'Aspirin', dose: '100 מ"ג' },
+            { id: 2, name: 'Metformin', dose: '500 מ"ג' },
+            { id: 3, name: 'Amlodipine', dose: '5 מ"ג' },
+            { id: 4, name: 'Atorvastatin', dose: '20 מ"ג' }
+        ];
+        let schedule = [
+            { time: '08:00', patientMeds: [{ residentId: 1, medIds: [1, 2] }, { residentId: 2, medIds: [2] }, { residentId: 3, medIds: [1] }] },
+            { time: '20:00', patientMeds: [{ residentId: 1, medIds: [4] }, { residentId: 2, medIds: [4] }] }
+        ];
+        
+        let currentUser = null;
+        let isAdmin = false;
+        let editingResId = null;
+        let editingMedId = null;
+        let editingSchedIdx = null;
+        let editingUserIdx = null;
+        let activeSelectedTime = null; 
+        let lastNotifiedTime = null; // מניעת התראות כפולות באותה דקה
+        
+        let currentTracking = { resId: null, sTime: null, selectedMeds: [] };
+        let tracking = {};
+        let trackingTime = {};
+        let trackingNurse = {};
+
+        function pushDataToCloud() {
+            if(db) {
+                db.ref('system_data').set({
+                    users, residents, medications, schedule, tracking, trackingTime, trackingNurse
+                });
+            } else {
+                localStorage.setItem('residents', JSON.stringify(residents));
+                localStorage.setItem('medications', JSON.stringify(medications));
+                localStorage.setItem('schedule', JSON.stringify(schedule));
+                localStorage.setItem('app_users', JSON.stringify(users));
+                localStorage.setItem('tracking', JSON.stringify(tracking));
+                localStorage.setItem('trackingTime', JSON.stringify(trackingTime));
+                localStorage.setItem('trackingNurse', JSON.stringify(trackingNurse));
+            }
+        }
+
+        function listenToCloudChanges() {
+            if(db) {
+                db.ref('system_data').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if(data) {
+                        if(data.users) users = data.users;
+                        if(data.residents) residents = data.residents;
+                        if(data.medications) medications = data.medications;
+                        if(data.schedule) schedule = data.schedule;
+                        tracking = data.tracking || {};
+                        trackingTime = data.trackingTime || {};
+                        trackingNurse = data.trackingNurse || {};
+                        
+                        if(document.getElementById('mainApp').style.display === 'block') showHome();
+                        if(document.getElementById('adminPanel').style.display === 'block') {
+                            showSummaryTab(); showManagementTab(); showUsersTab();
+                        }
+                    }
+                });
+            } else {
+                document.querySelector('.cloud-badge').textContent = "⚠️ שמירה מקומית בלבד";
+                document.querySelector('.cloud-badge').style.background = "#fff3cd";
+                document.querySelector('.cloud-badge').style.color = "#856404";
+                if(localStorage.getItem('residents')) residents = JSON.parse(localStorage.getItem('residents'));
+                if(localStorage.getItem('medications')) medications = JSON.parse(localStorage.getItem('medications'));
+                if(localStorage.getItem('schedule')) schedule = JSON.parse(localStorage.getItem('schedule'));
+                if(localStorage.getItem('app_users')) users = JSON.parse(localStorage.getItem('app_users'));
+                if(localStorage.getItem('tracking')) tracking = JSON.parse(localStorage.getItem('tracking'));
+                if(localStorage.getItem('trackingTime')) trackingTime = JSON.parse(localStorage.getItem('trackingTime'));
+                if(localStorage.getItem('trackingNurse')) trackingNurse = JSON.parse(localStorage.getItem('trackingNurse'));
+            }
+        }
+
+        // בדיקת מצב התחברות אוטומטי בעת טעינת הדף
+        window.addEventListener('DOMContentLoaded', () => {
+            listenToCloudChanges();
+            checkPersistentLogin();
+            
+            // מנגנון בדיקת שעות סבב לצורך שליחת התראה (רץ כל 30 שניות)
+            setInterval(checkScheduleForNotifications, 30000);
+        });
+
+        function checkPersistentLogin() {
+            const savedUser = localStorage.getItem('activeUser');
+            const savedIsAdmin = localStorage.getItem('isAdmin');
+            
+            if (savedUser) {
+                currentUser = savedUser;
+                if (savedIsAdmin === 'true') {
+                    isAdmin = true;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                    switchTab(0);
+                } else {
+                    isAdmin = false;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    document.getElementById('navBar').style.display = 'flex';
+                    document.getElementById('userName').textContent = `שלום, ${currentUser}`;
+                    showHome();
+                }
+            }
+        }
+
+        function handleLogin() {
+            const uName = document.getElementById('loginUsername').value.trim();
+            const uPass = document.getElementById('loginPassword').value.trim();
+            
+            if(!uName || !uPass) { showToast('אנא מלאי שם משתמשת וסיסמה', 'error'); return; }
+            if(uName.toLowerCase() === 'admin' && uPass === '1234') { enterAdmin(); return; }
+            
+            const foundUser = users.find(u => u.username === uName && u.password === uPass);
+            if(foundUser) {
+                currentUser = foundUser.username;
+                isAdmin = false;
+                
+                // שמירת המצב במכשיר
+                localStorage.setItem('activeUser', currentUser);
+                localStorage.setItem('isAdmin', 'false');
+
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('navBar').style.display = 'flex';
+                document.getElementById('userName').textContent = `שלום, ${currentUser}`;
+                activeSelectedTime = null; 
+                showHome();
+            } else {
+                showToast('שם משתמשת או סיסמה שגויים', 'error');
+            }
+        }
+        
+        function adminQuickLogin() {
+            const pass = prompt('🔑 סיסמת Admin:');
+            if(pass === '1234') enterAdmin();
+            else if (pass !== null) showToast('סיסמה שגויה', 'error');
+        }
+        
+        function enterAdmin() {
+            currentUser = 'Admin';
+            isAdmin = true;
+            
+            localStorage.setItem('activeUser', currentUser);
+            localStorage.setItem('isAdmin', 'true');
+
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            switchTab(0);
+        }
+
+        // פונקציה לניהול שינוי מתג ההתראות
+        function handleNotificationToggle(checkbox) {
+            if (checkbox.checked) {
+                if (!("Notification" in window)) {
+                    showToast("הדפדפן במכשיר זה אינו תומך בהתראות", "error");
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        localStorage.setItem('notificationsEnabled', 'true');
+                        showToast("ההתראות הופעלו בהצלחה!");
+                    } else {
+                        localStorage.setItem('notificationsEnabled', 'false');
+                        showToast("הגישה להתראות נדחתה על ידי המכשיר", "error");
+                        checkbox.checked = false;
+                    }
+                });
+            } else {
+                localStorage.setItem('notificationsEnabled', 'false');
+                showToast("ההתראות כובו");
+            }
+        }
+
+        // בדיקה אקטיבית אם הגיע זמן סבב
+        function checkScheduleForNotifications() {
+            const isEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+            if (!isEnabled || Notification.permission !== "granted") return;
+
+            const now = new Date();
+            const currentFormattedTime = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+            if (lastNotifiedTime === currentFormattedTime) return; // כבר שלחנו בדקה הזו
+
+            const matchedSchedule = schedule.find(s => s.time === currentFormattedTime);
+            if (matchedSchedule) {
+                lastNotifiedTime = currentFormattedTime;
+                
+                // חישוב כמות הדיירים הממתינים בסבב
+                const patientCount = matchedSchedule.patientMeds ? matchedSchedule.patientMeds.length : 0;
+                
+                const notification = new Notification("🔔 זמן לסבב תרופות!", {
+                    body: `השעה ${currentFormattedTime}. יש להשלים חלוקה עבור ${patientCount} דיירים בסבב הנוכחי.`,
+                    icon: "https://cdn-icons-png.flaticon.com/512/3022/3022828.png",
+                    badge: "https://cdn-icons-png.flaticon.com/512/3022/3022828.png",
+                    vibrate: [200, 100, 200]
+                });
+
+                notification.onclick = function() {
+                    window.focus();
+                    activeSelectedTime = matchedSchedule.time;
+                    showHome();
+                };
+            }
+        }
+        
+        function switchTab(tabNum) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            const buttons = document.querySelectorAll('.tab-btn');
+            if(buttons[tabNum]) buttons[tabNum].classList.add('active');
+            document.getElementById(`tab${tabNum}`).classList.add('active');
+            if(tabNum === 0) { showSummaryTab(); showExportTab(); }
+            if(tabNum === 1) showManagementTab();
+            if(tabNum === 2) showUsersTab();
+        }
+        
+        function showSummaryTab() {
+            const today = new Date().toISOString().split('T')[0];
+            let totalMeds = 0, givenMeds = 0, skippedMeds = 0;
+            schedule.forEach(s => {
+                s.patientMeds.forEach(pm => {
+                    pm.medIds.forEach(medId => {
+                        totalMeds++;
+                        const key = `${today}_${pm.residentId}_${s.time}_${medId}`;
+                        if(tracking[key] === 'given') givenMeds++;
+                        if(tracking[key] === 'skipped') skippedMeds++;
+                    });
+                });
+            });
+            const percentage = totalMeds > 0 ? Math.round((givenMeds / totalMeds) * 100) : 0;
+            document.getElementById('todayStats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">סך הכל תרופות לחלוקה היום</div>
+                    <div class="stat-number">${totalMeds}</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="stat-card">
+                        <div class="stat-label" style="color:var(--apple-green);">ניתנו בהצלחה</div>
+                        <div class="stat-number" style="color:var(--apple-green);">${givenMeds}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label" style="color:var(--apple-red);">דולגו / לא ניתנו</div>
+                        <div class="stat-number" style="color:var(--apple-red);">${skippedMeds}</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">אחוז ביצוע יומי כללי</div>
+                    <div class="stat-number" style="color:var(--text-primary);">${percentage}%</div>
+                </div>
+            `;
+        }
+        
+        function showManagementTab() {
+            let resHtml = '';
+            residents.forEach(res => {
+                const activeMeds = res.medIds || [];
+                const activeMedsNames = activeMeds.map(mId => medications.find(m => m.id === mId)?.name || '?').join(', ');
+                resHtml += `
+                    <div class="item-row" onclick="openEditResident(${res.id})">
+                        <div style="flex: 1;">
+                            <div><strong>${res.name}</strong> <span style="font-size:12px; color:var(--text-secondary);">(חדר ${res.room})</span></div>
+                            <div style="font-size:12px; color:var(--warm-accent); margin-top:2px;">💊 קבועות: ${activeMedsNames || 'ללא תרופות'}</div>
+                        </div>
+                        <button class="btn-danger" onclick="event.stopPropagation(); deleteResident(${res.id})" style="padding:6px 12px; font-size:12px; border-radius:6px; width:auto; margin:0; color:#b84a39;">מחק</button>
+                    </div>
+                `;
+            });
+            document.getElementById('residentsContainer').innerHTML = resHtml || '<p style="color:gray; font-size:13px;">אין דיירים.</p>';
+
+            let newResMedsHtml = '';
+            medications.forEach(med => {
+                newResMedsHtml += `<label class="checkbox-label"><input type="checkbox" value="${med.id}" class="new-res-med-cb"> ${med.name} (${med.dose})</label>`;
+            });
+            document.getElementById('newResMedsList').innerHTML = newResMedsHtml || '<p style="font-size:12px; color:gray;">אין תרופות בקטלוג.</p>';
+
+            let medHtml = '';
+            medications.forEach(m => {
+                medHtml += `
+                    <div class="item-row" onclick="openEditMedication(${m.id})">
+                        <div><strong>${m.name}</strong> - <span style="color:var(--text-secondary); font-size:13px;">${m.dose}</span></div>
+                        <button class="btn-danger" onclick="event.stopPropagation(); deleteMedication(${m.id})" style="padding:6px 12px; font-size:12px; border-radius:6px; width:auto; margin:0; color:#b84a39;">×</button>
+                    </div>
+                `;
+            });
+            document.getElementById('medicationsList').innerHTML = medHtml || '<p style="color:gray; font-size:13px;">אין תרופות.</p>';
+            
+            let schedHtml = '';
+            schedule.forEach((s, idx) => {
+                let innerDetails = '';
+                s.patientMeds.forEach(pm => {
+                    const rName = residents.find(r => r.id === pm.residentId)?.name || 'דייר נמחק';
+                    const mNames = pm.medIds.map(mId => medications.find(m => m.id === mId)?.name || '?').join(', ');
+                    innerDetails += `<div style="font-size:12px; color:var(--text-primary); margin-top:3px;">• <strong>${rName}:</strong> ${mNames}</div>`;
+                });
+                schedHtml += `
+                    <div class="item-row" onclick="openEditSchedule(${idx})" style="align-items: flex-start; flex-direction: column;">
+                        <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+                            <strong style="color:var(--warm-accent); font-size:16px;">סבב שעה: ${s.time}</strong>
+                            <button class="btn-danger" onclick="event.stopPropagation(); deleteSchedule(${idx})" style="padding:6px 12px; font-size:12px; border-radius:6px; width:auto; margin:0; color:#b84a39;">מחק</button>
+                        </div>
+                        <div style="background:#fff; width:100%; padding:8px; border-radius:8px; border:1px solid var(--border-color);">${innerDetails}</div>
+                    </div>
+                `;
+            });
+            document.getElementById('scheduleList').innerHTML = schedHtml || '<p style="color:gray; font-size:13px;">אין סבבים.</p>';
+            buildSchedBuilder('schedBuilderContainer');
+        }
+
+        function buildSchedBuilder(containerId, existingPatientMeds = []) {
+            let html = '';
+            residents.forEach(res => {
+                const foundPm = existingPatientMeds.find(p => p.residentId === res.id);
+                const activeMedIds = foundPm ? foundPm.medIds : [];
+                const allowedMedIds = res.medIds || [];
+                html += `<div class="sched-builder-row">
+                    <strong style="font-size:14px; color:var(--text-primary);">👤 ${res.name}:</strong>
+                    <div class="checkbox-grid">`;
+                if(allowedMedIds.length === 0) {
+                    html += `<p style="font-size:12px; color:gray; padding:4px;">לא שוייכו תרופות בתיק הדייר.</p>`;
+                } else {
+                    allowedMedIds.forEach(mId => {
+                        const med = medications.find(m => m.id === mId);
+                        if(med) {
+                            const checked = activeMedIds.includes(med.id) ? 'checked' : '';
+                            html += `<label class="checkbox-label" style="background:#fff;"><input type="checkbox" data-res-id="${res.id}" value="${med.id}" ${checked} class="${containerId}-cb"> ${med.name} (${med.dose})</label>`;
+                        }
+                    });
+                }
+                html += `</div></div>`;
+            });
+            document.getElementById(containerId).innerHTML = html || '<p style="font-size:13px; color:gray;">אין דיירים זמינים.</p>';
+        }
+
+        function openEditResident(id) {
+            editingResId = id;
+            const res = residents.find(r => r.id === id);
+            document.getElementById('editResName').value = res.name;
+            document.getElementById('editResRoom').value = res.room;
+            const assignedMeds = res.medIds || [];
+            let medsHtml = '';
+            medications.forEach(med => {
+                const checked = assignedMeds.includes(med.id) ? 'checked' : '';
+                medsHtml += `<label class="checkbox-label"><input type="checkbox" value="${med.id}" ${checked} class="edit-res-med-cb"> ${med.name} (${med.dose})</label>`;
+            });
+            document.getElementById('editResMedsList').innerHTML = medsHtml || '<p style="font-size:12px; color:gray;">אין תרופות.</p>';
+            document.getElementById('editResidentModal').classList.add('active');
+        }
+        
+        function saveResident() {
+            const res = residents.find(r => r.id === editingResId);
+            res.name = document.getElementById('editResName').value.trim();
+            res.room = document.getElementById('editResRoom').value.trim();
+            let selectedMeds = [];
+            document.querySelectorAll('.edit-res-med-cb').forEach(cb => { if(cb.checked) selectedMeds.push(parseInt(cb.value)); });
+            res.medIds = selectedMeds;
+            schedule.forEach(s => {
+                s.patientMeds.forEach(pm => { if(pm.residentId === res.id) { pm.medIds = pm.medIds.filter(mId => selectedMeds.includes(mId)); } });
+            });
+            pushDataToCloud(); closeEditModal(); showToast('רשומת דייר עודכנה', 'success'); showManagementTab();
+        }
+        function closeEditModal() { document.getElementById('editResidentModal').classList.remove('active'); }
+        
+        function addResident() {
+            const name = document.getElementById('newResName').value.trim();
+            const room = document.getElementById('newResRoom').value.trim();
+            if(!name || !room) { showToast('נא למלא שם ומספר חדר', 'error'); return; }
+            let selectedMeds = [];
+            document.querySelectorAll('.new-res-med-cb').forEach(cb => { if(cb.checked) selectedMeds.push(parseInt(cb.value)); });
+            const newId = Math.max(...residents.map(r => r.id), 0) + 1;
+            residents.push({ id: newId, name, room, medIds: selectedMeds });
+            pushDataToCloud(); showManagementTab();
+            document.getElementById('newResName').value = ''; document.getElementById('newResRoom').value = '';
+            showToast('הדייר נוסף בהצלחה', 'success');
+        }
+        
+        function deleteResident(id) {
+            if(!confirm('למחוק דייר זה מהרשומות?')) return;
+            residents = residents.filter(r => r.id !== id);
+            schedule.forEach(s => { s.patientMeds = s.patientMeds.filter(pm => pm.residentId !== id); });
+            pushDataToCloud(); showManagementTab();
+        }
+
+        function openEditMedication(id) {
+            editingMedId = id;
+            const med = medications.find(m => m.id === id);
+            document.getElementById('editMedName').value = med.name;
+            document.getElementById('editMedDose').value = med.dose;
+            document.getElementById('editMedModal').classList.add('active');
+        }
+        function saveMedication() {
+            const med = medications.find(m => m.id === editingMedId);
+            med.name = document.getElementById('editMedName').value.trim();
+            med.dose = document.getElementById('editMedDose').value.trim();
+            pushDataToCloud(); closeEditMedModal(); showToast('התרופה עודכנה', 'success'); showManagementTab();
+        }
+        function closeEditMedModal() { document.getElementById('editMedModal').classList.remove('active'); }
+        function addMedication() {
+            const name = document.getElementById('newMedName').value.trim();
+            const dose = document.getElementById('newMedDose').value.trim();
+            if(!name || !dose) { showToast('נא למלא שם ומינון', 'error'); return; }
+            const newId = Math.max(...medications.map(m => m.id), 0) + 1;
+            medications.push({ id: newId, name, dose });
+            pushDataToCloud(); showManagementTab();
+            document.getElementById('newMedName').value = ''; document.getElementById('newMedDose').value = '';
+        }
+        function deleteMedication(id) {
+            if(!confirm('למחוק תרופה זו?')) return;
+            medications = medications.filter(m => m.id !== id);
+            residents.forEach(r => { if(r.medIds) r.medIds = r.medIds.filter(mId => mId !== id); });
+            schedule.forEach(s => { s.patientMeds.forEach(pm => { pm.medIds = pm.medIds.filter(mId => mId !== id); }); });
+            pushDataToCloud(); showManagementTab();
+        }
+
+        function addSchedule() {
+            const time = document.getElementById('newTime').value;
+            if(!time) { showToast('נא לבחור שעה', 'error'); return; }
+            let patientMedsMap = {};
+            document.querySelectorAll('.schedBuilderContainer-cb').forEach(cb => {
+                if(cb.checked) {
+                    const resId = parseInt(cb.getAttribute('data-res-id'));
+                    const medId = parseInt(cb.value);
+                    if(!patientMedsMap[resId]) patientMedsMap[resId] = [];
+                    patientMedsMap[resId].push(medId);
+                }
+            });
+            let patientMedsArray = [];
+            for(let resId in patientMedsMap) { patientMedsArray.push({ residentId: parseInt(resId), medIds: patientMedsMap[resId] }); }
+            if(patientMedsArray.length === 0) { showToast('יש לסמן לפחות תרופה אחת', 'error'); return; }
+            schedule.push({ time, patientMeds: patientMedsArray });
+            schedule.sort((a, b) => a.time.localeCompare(b.time));
+            pushDataToCloud(); showManagementTab();
+            document.getElementById('newTime').value = '';
+            showToast('סבב חלוקה נוצר בהצלחה', 'success');
+        }
+
+        function openEditSchedule(idx) {
+            editingSchedIdx = idx;
+            const s = schedule[idx];
+            document.getElementById('editSchedTime').value = s.time;
+            buildSchedBuilder('editSchedBuilderContainer', s.patientMeds);
+            document.getElementById('editScheduleModal').classList.add('active');
+        }
+        function saveSchedule() {
+            const s = schedule[editingSchedIdx];
+            s.time = document.getElementById('editSchedTime').value;
+            let patientMedsMap = {};
+            document.querySelectorAll('.editSchedBuilderContainer-cb').forEach(cb => {
+                if(cb.checked) {
+                    const resId = parseInt(cb.getAttribute('data-res-id'));
+                    const medId = parseInt(cb.value);
+                    if(!patientMedsMap[resId]) patientMedsMap[resId] = [];
+                    patientMedsMap[resId].push(medId);
+                }
+            });
+            let patientMedsArray = [];
+            for(let resId in patientMedsMap) { patientMedsArray.push({ residentId: parseInt(resId), medIds: patientMedsMap[resId] }); }
+            s.patientMeds = patientMedsArray;
+            schedule.sort((a, b) => a.time.localeCompare(b.time));
+            pushDataToCloud(); closeEditScheduleModal(); showToast('סבב חלוקה עודכן', 'success'); showManagementTab();
+        }
+        function closeEditScheduleModal() { document.getElementById('editScheduleModal').classList.remove('active'); }
+        function deleteSchedule(idx) {
+            if(!confirm('האם למחוק סבב חלוקה זה?')) return;
+            schedule.splice(idx, 1); pushDataToCloud(); showManagementTab();
+        }
+
+        function showUsersTab() {
+            let html = '';
+            users.forEach((u, idx) => {
+                html += `
+                    <div class="user-row" onclick="openEditUser(${idx})" style="cursor:pointer;">
+                        <div>
+                            <strong>${u.username}</strong>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">סיסמה: ${u.password}</div>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteUser(${idx})" style="background:#fff2f1; color:var(--apple-red); border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:600;">מחק</button>
+                    </div>`;
+            });
+            document.getElementById('usersContainer').innerHTML = html || '<p style="color:gray;">אין משתמשות רשומות.</p>';
+        }
+        
+        function openEditUser(idx) {
+            editingUserIdx = idx;
+            const u = users[idx];
+            document.getElementById('editIndividualUserName').value = u.username;
+            document.getElementById('editIndividualUserPass').value = u.password;
+            document.getElementById('editUserModal').classList.add('active');
+        }
+        
+        function saveUserChanges() {
+            const name = document.getElementById('editIndividualUserName').value.trim();
+            const pass = document.getElementById('editIndividualUserPass').value.trim();
+            if(!name || !pass) { showToast('שדה שם וסיסמה לא יכולים להישאר ריקים', 'error'); return; }
+            users[editingUserIdx].username = name;
+            users[editingUserIdx].password = pass;
+            pushDataToCloud(); closeEditUserModal(); showToast('פרופיל העובדת עודכן', 'success'); showUsersTab();
+        }
+        function closeEditUserModal() { document.getElementById('editUserModal').classList.remove('active'); }
+
+        function addNewUser() {
+            const name = document.getElementById('newUserName').value.trim();
+            const pass = document.getElementById('newUserPass').value.trim();
+            if(!name || !pass) { showToast('נא למלא שם וסיסמה', 'error'); return; }
+            if(users.some(u => u.username === name)) { showToast('פרופיל משתמשת קיים במערכת', 'error'); return; }
+            users.push({ username: name, password: pass });
+            pushDataToCloud(); showUsersTab();
+            document.getElementById('newUserName').value = ''; document.getElementById('newUserPass').value = '';
+            showToast('המשתמשת הוגדרה בהצלחה', 'success');
+        }
+        function deleteUser(idx) {
+            if(!confirm(`האם למחוק את המשתמשת "${users[idx].username}"?`)) return;
+            users.splice(idx, 1); pushDataToCloud(); showUsersTab();
+        }
+
+        function showExportTab() {
+            const today = new Date().toISOString().split('T')[0];
+            if(!document.getElementById('dailyDate').value) document.getElementById('dailyDate').value = today;
+            if(!document.getElementById('monthlyDate').value) document.getElementById('monthlyDate').value = today.slice(0, 7);
+        }
+
+        function getClosestScheduleTime() {
+            if (schedule.length === 0) return null;
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            let closestSched = schedule[0];
+            let minDifference = Infinity;
+            schedule.forEach(s => {
+                const [hours, minutes] = s.time.split(':').map(Number);
+                const schedMinutes = hours * 60 + minutes;
+                const diff = Math.abs(currentMinutes - schedMinutes);
+                if (diff < minDifference) { minDifference = diff; closestSched = s; }
+            });
+            return closestSched.time;
+        }
+
+        function handleScheduleChange(selectElement) { activeSelectedTime = selectElement.value; showHome(); }
+
+        function showHome() {
+            if (schedule.length === 0) {
+                document.getElementById('mainContent').innerHTML = '<p style="text-align:center; padding:40px; color:var(--text-secondary);">אין סבבי תרופות מוגדרים.</p>';
+                return;
+            }
+            let isAutoDetected = false;
+            if (!activeSelectedTime) { activeSelectedTime = getClosestScheduleTime(); isAutoDetected = true; }
+            const today = new Date().toISOString().split('T')[0];
+            const currentSelectedStep = schedule.find(s => s.time === activeSelectedTime);
+
+            // בדיקת סטטוס הגדרת מתג ההתראות המקומי
+            const isNotificationsChecked = localStorage.getItem('notificationsEnabled') === 'true' ? 'checked' : '';
+
+            // הזרקת מתג ההתראות בראש המסך הראשי של המדריכה
+            let toggleHtml = `
+                <div class="notification-toggle-container">
+                    <div class="toggle-title">
+                        <span>🔔 קבלת התראות סבב לנייד</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" onchange="handleNotificationToggle(this)" ${isNotificationsChecked}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            `;
+
+            let selectorHtml = `
+                <div class="apple-group selector-card">
+                    <label>🔍 דפדוף ומעבר בין סבבים</label>
+                    <select onchange="handleScheduleChange(this)" style="background:var(--input-bg); font-weight:600; font-size:16px;">
+            `;
+            schedule.forEach(s => {
+                const isSelected = s.time === activeSelectedTime ? 'selected' : '';
+                const isClosest = s.time === getClosestScheduleTime() ? ' (הקרוב ביותר)' : '';
+                selectorHtml += `<option value="${s.time}" ${isSelected}>סבב שעה ${s.time}${isClosest}</option>`;
+            });
+            selectorHtml += `</select></div>`;
+
+            let residentsInStepHtml = '';
+            if (currentSelectedStep && currentSelectedStep.patientMeds) {
+                residentsInStepHtml += `<div class="apple-group">`;
+                currentSelectedStep.patientMeds.forEach(pm => {
+                    const res = residents.find(r => r.id === pm.residentId);
+                    if (!res) return;
+                    const matchedMeds = pm.medIds || [];
+                    if(matchedMeds.length === 0) return;
+                    
+                    const allGiven = matchedMeds.every(medId => tracking[`${today}_${res.id}_${activeSelectedTime}_${medId}`] === 'given');
+                    const someGiven = matchedMeds.some(medId => tracking[`${today}_${res.id}_${activeSelectedTime}_${medId}`]);
+                    
+                    residentsInStepHtml += `
+                        <div class="reminder-card" onclick="openModal(${res.id}, '${activeSelectedTime}', ${JSON.stringify(matchedMeds)})">
+                            <div class="reminder-time">${res.name}</div>
+                            <div class="reminder-residents">${matchedMeds.length} תרופות בסבב זה</div>
+                            <div class="reminder-room">חדר ${res.room}</div>
+                            ${allGiven ? '<div class="reminder-status status-completed">✅ הכל ניתן</div>' : someGiven ? '<div class="reminder-status status-partial">⏳ חלקי</div>' : ''}
+                        </div>
+                    `;
+                });
+                residentsInStepHtml += `</div>`;
+            }
+
+            if (residentsInStepHtml === '<div class="apple-group"></div>' || residentsInStepHtml === '') {
+                residentsInStepHtml = '<p style="text-align:center; padding:20px; color:var(--text-secondary); font-size:14px;">אין תרופות לחלוקה בסבב זה.</p>';
+            }
+
+            document.getElementById('mainContent').innerHTML = `
+                ${toggleHtml}
+                ${selectorHtml}
+                <div class="time-section">
+                    <div class="time-header">
+                        <span>סבב שעה ${activeSelectedTime}</span>
+                        ${isAutoDetected ? '<span class="time-badge">🧭 הותאם אוטומטית</span>' : '<span class="time-badge" style="background:#fff3cd; color:#856404;">👁️ צפייה ידנית</span>'}
+                    </div>
+                    ${residentsInStepHtml}
+                </div>
+            `;
+        }
+        
+        function openModal(resId, sTime, matchedMeds) {
+            currentTracking = { resId, sTime, selectedMeds: [] };
+            const res = residents.find(r => r.id === resId);
+            document.getElementById('modalResidentName').textContent = res.name;
+            document.getElementById('modalResidentRoom').textContent = `חדר ${res.room} • סבב ${sTime}`;
+            
+            const today = new Date().toISOString().split('T')[0];
+            let medsHtml = matchedMeds.map(medId => {
+                const med = medications.find(m => m.id === medId);
+                if (!med) return '';
+                const key = `${today}_${resId}_${sTime}_${medId}`;
+                const status = tracking[key];
+                return `
+                    <div class="med-option ${status ? 'selected' : ''}" onclick="selectMed(${medId}, this)">
+                        <div><div class="med-name">${med.name}</div><div class="med-dose">${med.dose}</div></div>
+                        <div style="font-size:14px; font-weight:700;">
+                            ${status === 'given' ? '<span style="color:var(--apple-green);">ניתנה</span>' : status === 'skipped' ? '<span style="color:var(--apple-red);">דולגה</span>' : '<span style="color:var(--text-secondary);">במתנה</span>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('medsGrid').innerHTML = medsHtml;
+            document.getElementById('medModal').classList.add('active');
+        }
+        
+        function selectMed(medId, element) {
+            element.classList.toggle('selected');
+            if (currentTracking.selectedMeds.includes(medId)) {
+                currentTracking.selectedMeds = currentTracking.selectedMeds.filter(m => m !== medId);
+            } else { currentTracking.selectedMeds.push(medId); }
+        }
+        
+        function closeModal() { document.getElementById('medModal').classList.remove('active'); }
+        
+        function recordGiven() {
+            if(!currentTracking.selectedMeds.length) { showToast('אנא בחרי לפחות תרופה אחת', 'error'); return; }
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            currentTracking.selectedMeds.forEach(medId => {
+                const key = `${today}_${currentTracking.resId}_${currentTracking.sTime}_${medId}`;
+                tracking[key] = 'given'; trackingTime[key] = now; trackingNurse[key] = currentUser;
+            });
+            pushDataToCloud(); showToast(`התרופות עודכנו כניתנו`, 'success'); closeModal(); showHome();
+        }
+        
+        function recordSkipped() {
+            if(!currentTracking.selectedMeds.length) { showToast('אנא בחרי לפחות תרופה אחת', 'error'); return; }
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            currentTracking.selectedMeds.forEach(medId => {
+                const key = `${today}_${currentTracking.resId}_${currentTracking.sTime}_${medId}`;
+                tracking[key] = 'skipped'; trackingTime[key] = now; trackingNurse[key] = currentUser;
+            });
+            pushDataToCloud(); showToast(`התרופות סומנו כדולגו`, 'success'); closeModal(); showHome();
+        }
+        
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast'); toast.textContent = msg;
+            toast.style.display = 'block'; setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+        
+        function logout() {
+            currentUser = null; isAdmin = false; activeSelectedTime = null;
+            
+            // מחיקת נתוני הסשן כדי לאפשר החלפת משתמשת ידנית
+            localStorage.removeItem('activeUser');
+            localStorage.removeItem('isAdmin');
+
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('navBar').style.display = 'none';
+        }
+        
+        function generateDailyPDF() {
+            const date = document.getElementById('dailyDate').value;
+            if(!date) { showToast('אנא בחרי תאריך', 'error'); return; }
+            createAndExportPDF(`דו"ח ניפוק יומי מרוכז - ${new Date(date + 'T00:00:00').toLocaleDateString('he-IL')}`, [date], `דוח-יומי-${date}`);
+        }
+        function generateMonthlyPDF() {
+            const month = document.getElementById('monthlyDate').value;
+            if(!month) { showToast('אנא בחרי חודש ושנה', 'error'); return; }
+            const [year, monthNum] = month.split('-');
+            const dates = []; const daysInMonth = new Date(year, monthNum, 0).getDate();
+            for(let i = 1; i <= daysInMonth; i++) { dates.push(new Date(year, monthNum - 1, i).toISOString().split('T')[0]); }
+            const monthName = new Date(year, monthNum - 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+            createAndExportPDF(`דו"ח ניפוק חודשי תקופתי - ${monthName}`, dates, `דוח-חודשי-${month}`);
+        }
+
+        function createAndExportPDF(title, dates, filename) {
+            let html = `<div style="font-family: Arial; direction: rtl; text-align: right; padding: 20px; max-width: 800px; background:white;"><h1 style="text-align: center; color: #a66e4e; margin-bottom: 20px; font-size: 22px;">${title}</h1>`;
+            let totalMeds = 0, givenMeds = 0, skippedMeds = 0;
+            dates.forEach(date => {
+                schedule.forEach(s => { s.patientMeds.forEach(pm => { pm.medIds.forEach(medId => {
+                    totalMeds++; const key = `${date}_${pm.residentId}_${s.time}_${medId}`;
+                    if(tracking[key] === 'given') givenMeds++; if(tracking[key] === 'skipped') skippedMeds++;
+                }); }); });
+            });
+            const percentage = totalMeds > 0 ? Math.round((givenMeds / totalMeds) * 100) : 0;
+            html += `<div style="background: #f4efe6; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e8e2da;"><p style="margin: 5px 0; font-size:14px; color: #3c2f2f;"><strong>סיכום לתקופה:</strong> סה"כ מנות: <strong>${totalMeds}</strong> | לקיחה: <strong style="color: #4a7c59;">${givenMeds}</strong> | דילוג: <strong style="color: #b84a39;">${skippedMeds}</strong> | אחוז עמידה: <strong>${percentage}%</strong></p></div>`;
+            dates.forEach(date => {
+                schedule.forEach(s => { s.patientMeds.forEach(pm => {
+                    const res = residents.find(r => r.id === pm.residentId); if (!res) return;
+                    let tableRows = '';
+                    pm.medIds.forEach(medId => {
+                        const med = medications.find(m => m.id === medId); if (!med) return;
+                        const key = `${date}_${res.id}_${s.time}_${medId}`; const status = tracking[key];
+                        if(status) {
+                            const time = trackingTime[key] || '-'; const nurse = trackingNurse[key] || '-';
+                            const statusText = status === 'given' ? 'ניתנה' : 'דולגה'; const color = status === 'given' ? '#4a7c59' : '#b84a39';
+                            tableRows += `<tr style="border: 1px solid #ddd;"><td style="padding: 6px;">${med.name}</td><td style="padding: 6px;">${med.dose}</td><td style="padding: 6px;">${time}</td><td style="padding: 6px;">${nurse}</td><td style="padding: 6px; color: ${color}; font-weight: bold;">${statusText}</td></tr>`;
+                        }
+                    });
+                    if(tableRows !== '') {
+                        html += `<div style="margin: 15px 0; padding: 12px; background: #fff; border: 1px solid #e8e2da; border-radius: 8px; page-break-inside: avoid;"><p style="font-weight: bold; margin: 0; font-size:13px; color: #3c2f2f;">${res.name} (חדר ${res.room}) • ${new Date(date + 'T00:00:00').toLocaleDateString('he-IL')} • סבב ${s.time}</p><table style="width: 100%; margin-top: 8px; font-size: 11px; border-collapse: collapse;"><tr style="background: #f4efe6;"><th style="padding: 6px; border: 1px solid #ddd;">שם התכשיר</th><th style="padding: 6px; border: 1px solid #ddd;">מינון</th><th style="padding: 6px; border: 1px solid #ddd;">שעת מתן</th><th style="padding: 6px; border: 1px solid #ddd;">מדריכה</th><th style="padding: 6px; border: 1px solid #ddd;">סטטוס</th></tr>${tableRows}</table></div>`;
+                    }
+                }); });
+            });
+            html += '</div>';
+            const container = document.createElement('div'); container.innerHTML = html;
+            container.style.position = 'absolute'; container.style.left = '-9999px'; container.style.width = '800px';
+            document.body.appendChild(container);
+            html2canvas(container, { scale: 2, useCORS: true }).then(canvas => {
+                const { jsPDF } = window.jspdf; const imgData = canvas.toDataURL('image/png');
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const imgWidth = 210; const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight; let position = 0;
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight); heightLeft -= 297;
+                while (heightLeft >= 0) { position = heightLeft - imgHeight; doc.addPage(); doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight); heightLeft -= 297; }
+                doc.save(`${filename}.pdf`); document.body.removeChild(container); showToast('קובץ ה-PDF הופק בהצלחה', 'success');
+            });
+        }
+
+        function exportJSON() {
+            const data = { app_users: users, residents, medications, schedule, tracking, trackingTime, trackingNurse };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `backup-system.json`; a.click();
+        }
+        function clearAllData() { if(confirm('לאפס את כל מסד הנתונים?')) { if(db) { db.ref('system_data').remove(); } localStorage.clear(); window.location.reload(); } }
+    </script>
+
+    <!-- PWA Generator Script -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            // עדכון ה-manifest עם אייקון לבחירתך
+const manifest = {
+    "short_name": "חפציבה",
+    "name": "מעקב תרופות חפציבה",
+    "icons": [
+        {
+            "src": "https://ibb.co/YxWKS1n", // כאן תשים את הלינק לאייקון שלך
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable" // עוזר למערכת להתאים את האייקון למסגרת של אנדרואיד/iOS
+        }
+    ],
+    "start_url": ".",
+    "background_color": "#faf8f5",
+    "theme_color": "#faf8f5",
+    "display": "standalone",
+    "orientation": "portrait"
+};
+            const stringManifest = JSON.stringify(manifest);
+            const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blobManifest);
+            const manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            manifestLink.href = manifestURL;
+            document.head.appendChild(manifestLink);
+
+            const swCode = `
+                const CACHE_NAME = 'hefziba-cache-v1';
+                const urlsToCache = [window.location.href];
+                self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache))); });
+                self.addEventListener('fetch', e => { e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))); });
+            `;
+            const blobSW = new Blob([swCode], {type: 'application/javascript'});
+            const swURL = URL.createObjectURL(blobSW);
+            navigator.serviceWorker.register(swURL).then(() => console.log("PWA Active")).catch(err => console.log(err));
+        }
+    </script>
+</body>
+</html>
